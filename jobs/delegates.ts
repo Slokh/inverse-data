@@ -42,42 +42,58 @@ export const handler = async () => {
       {}
     );
 
-    Object.keys(delegates).forEach((delegate: string) => {
-      const delegators = delegateChanged
-        .filter(({ args }) => args.toDelegate === delegate)
-        .map(({ args }) => args.delegator);
+    await Promise.all(
+      Object.keys(delegates).map(async (delegate: string) => {
+        const delegators = delegateChanged
+          .filter(({ args }) => args.toDelegate === delegate)
+          .map(({ args }) => args.delegator);
 
-      const undelegators = delegateChanged
-        .filter(({ args }) => args.fromDelegate === delegate)
-        .map(({ args }) => args.delegator);
+        const undelegators = delegateChanged
+          .filter(({ args }) => args.fromDelegate === delegate)
+          .map(({ args }) => args.delegator);
 
-      const votes = votesCast.filter(({ args }) => args.voter === delegate);
+        const votes = votesCast.filter(({ args }) => args.voter === delegate);
 
-      delegates[delegate] = {
-        ...delegates[delegate],
-        delegators: Array.from(
-          new Set(
-            delegators.filter((delegator) => !undelegators.includes(delegator))
-          )
-        ),
-        votes: votes.map(({ args }) => ({
-          proposalId: args.proposalId.toNumber(),
-          support: args.support,
-          votes: parseFloat(formatUnits(args.votes)),
-        })),
-      };
-    });
+        delegates[delegate] = {
+          ...delegates[delegate],
+          ensName: await provider.lookupAddress(delegate),
+          delegators: await Promise.all(
+            Array.from(
+              new Set(
+                delegators.filter(
+                  (delegator) => !undelegators.includes(delegator)
+                )
+              )
+            ).map(async (address: string) => ({
+              address,
+              ensName: await provider.lookupAddress(delegate),
+            }))
+          ),
+          votes: votes.map(({ args }) => ({
+            proposalId: args.proposalId.toNumber(),
+            support: args.support,
+            votes: parseFloat(formatUnits(args.votes)),
+          })),
+        };
+      })
+    );
 
     await dynamo
-      .put({
-        TableName: "inverse",
-        Item: {
-          field: "delegates",
-          blockNumber,
-          timestamp: Date.now(),
-          data: delegates,
+      .put(
+        {
+          TableName: "inverse",
+          Item: {
+            field: "delegates",
+            blockNumber,
+            timestamp: Date.now(),
+            data: delegates,
+          },
         },
-      })
+        (res, err) => {
+          console.log(res);
+          console.log(err);
+        }
+      )
       .promise();
 
     return JSON.stringify({ status: "ok" });
