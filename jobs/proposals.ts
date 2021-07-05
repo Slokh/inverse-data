@@ -1,11 +1,11 @@
 import "source-map-support";
 
-import { InfuraProvider } from "@ethersproject/providers";
 import { Contract } from "ethers";
 import { GOVERNANCE } from "@config/constants";
 import { GOVERNANCE_ABI } from "@config/abis";
 import { formatUnits } from "ethers/lib/utils";
 import { DynamoDB } from "aws-sdk";
+import { RetryProvider } from "@lib/retry-provider";
 
 const GRACE_PERIOD = 1209600;
 
@@ -24,7 +24,11 @@ enum ProposalStatus {
 
 export const handler = async () => {
   try {
-    const provider = new InfuraProvider("homestead", process.env.INFURA_ID);
+    const provider = new RetryProvider(
+      5,
+      "https://cloudflare-eth.com/",
+      "homestead"
+    );
     const governance = new Contract(GOVERNANCE, GOVERNANCE_ABI, provider);
 
     const [

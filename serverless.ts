@@ -16,7 +16,6 @@ const serverlessConfiguration: AWS = {
     timeout: 30,
     environment: {
       AWS_NODEJS_CONNECTION_REUSE_ENABLED: "1",
-      INFURA_ID: "",
     },
     lambdaHashingVersion: "20201221",
   },
